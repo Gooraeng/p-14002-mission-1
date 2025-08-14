@@ -1,132 +1,118 @@
-package com.back.standard.util;
+package com.back.standard.util
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ClaimsBuilder;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import lombok.SneakyThrows;
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.security.Keys
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.security.Key
+import java.util.*
 
-import javax.crypto.SecretKey;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.security.Key;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Map;
+object Ut {
+    object jwt {
+        @JvmStatic
+        fun toString(secret: String, expireSeconds: Int, body: Map<String, Any>): String {
+            val issuedAt = Date()
+            val expiration = Date(issuedAt.time + 1000L * expireSeconds)
 
-public class Ut {
-    public static class jwt {
-        public static String toString(String secret, int expireSeconds, Map<String, Object> body) {
-            ClaimsBuilder claimsBuilder = Jwts.claims();
+            val secretKey: Key = Keys.hmacShaKeyFor(secret.toByteArray())
 
-            for (Map.Entry<String, Object> entry : body.entrySet()) {
-                claimsBuilder.add(entry.getKey(), entry.getValue());
-            }
+            val jwt = Jwts.builder()
+                .claims(body)
+                .issuedAt(issuedAt)
+                .expiration(expiration)
+                .signWith(secretKey)
+                .compact()
 
-            Claims claims = claimsBuilder.build();
-
-            Date issuedAt = new Date();
-            Date expiration = new Date(issuedAt.getTime() + 1000L * expireSeconds);
-
-            Key secretKey = Keys.hmacShaKeyFor(secret.getBytes());
-
-            String jwt = Jwts.builder()
-                    .claims(claims)
-                    .issuedAt(issuedAt)
-                    .expiration(expiration)
-                    .signWith(secretKey)
-                    .compact();
-
-            return jwt;
+            return jwt
         }
 
-        public static boolean isValid(String secret, String jwtStr) {
-            SecretKey secretKey = Keys.hmacShaKeyFor(secret.getBytes());
+        @JvmStatic
+        fun isValid(secret: String, jwtStr: String): Boolean {
+            val secretKey = Keys.hmacShaKeyFor(secret.toByteArray())
 
-            try {
+            return try {
                 Jwts
-                        .parser()
-                        .verifyWith(secretKey)
-                        .build()
-                        .parse(jwtStr);
-            } catch (Exception e) {
-                return false;
-            }
+                    .parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parse(jwtStr)
 
-            return true;
-        }
-
-        public static Map<String, Object> payload(String secret, String jwtStr) {
-            SecretKey secretKey = Keys.hmacShaKeyFor(secret.getBytes());
-
-            try {
-                return (Map<String, Object>) Jwts
-                        .parser()
-                        .verifyWith(secretKey)
-                        .build()
-                        .parse(jwtStr)
-                        .getPayload();
-            } catch (Exception e) {
-                return null;
+                true
+            } catch (e: Exception) {
+                return false
             }
         }
-    }
 
-    public static class json {
-        public static ObjectMapper objectMapper;
+        @JvmStatic
+        fun payload(secret: String, jwtStr: String): Map<String, Any>? {
+            return try {
+                val secretKey = Keys.hmacShaKeyFor(secret.toByteArray())
 
-        public static String toString(Object object) {
-            return toString(object, null);
-        }
-
-        public static String toString(Object object, String defaultValue) {
-            try {
-                return objectMapper.writeValueAsString(object);
-            } catch (Exception e) {
-                return defaultValue;
+                Jwts
+                    .parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parse(jwtStr)
+                    .getPayload() as Map<String, Any>
+            } catch (e: Exception) {
+                null
             }
         }
     }
 
-    public static class cmd {
+    object json {
+        lateinit var objectMapper: ObjectMapper
 
-        @SneakyThrows
-        public static void run(String... args) {
-            boolean isWindows = System
-                    .getProperty("os.name")
-                    .toLowerCase()
-                    .contains("win");
+        @JvmOverloads
+        @JvmStatic
+        fun toString(obj: Any, defaultValue: String = ""): String {
+            return try {
+                objectMapper.writeValueAsString(obj)
+            } catch (e: Exception) {
+                defaultValue
+            }
+        }
+    }
 
-            ProcessBuilder builder = new ProcessBuilder(
-                    Arrays.stream(args)
-                            .map(arg -> arg.replace("{{DOT_CMD}}", isWindows ? ".cmd" : ""))
-                            .toArray(String[]::new)
-            );
+    object cmd {
+        fun run(vararg args: String) {
+            val isWindows = System
+                .getProperty("os.name")
+                .lowercase(Locale.getDefault())
+                .contains("win")
+
+            val builder = ProcessBuilder(
+                args
+                    .map {
+                        it.replace(
+                        "{{DOT_CMD}}",
+                        if (isWindows) ".cmd" else ""
+                        )
+                    }
+                    .toList()
+            )
 
             // 에러 스트림도 출력 스트림과 함께 병합
-            builder.redirectErrorStream(true);
+            builder.redirectErrorStream(true)
 
             // 프로세스 시작
-            Process process = builder.start();
+            val process = builder.start()
 
-            // 결과 출력
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println(line); // 결과 한 줄씩 출력
-                }
+            BufferedReader(InputStreamReader(process.inputStream)).useLines {
+                lines -> lines.forEach { println(it) }
             }
 
             // 종료 코드 확인
-            int exitCode = process.waitFor();
-            System.out.println("종료 코드: " + exitCode);
+            val exitCode = process.waitFor()
+            println("종료 코드: $exitCode")
         }
 
-        public static void runAsync(String... args) {
-            new Thread(() -> {
-                run(args);
-            }).start();
+        @JvmStatic
+        fun runAsync(vararg args: String) {
+            Thread(Runnable {
+                run(*args)
+            }).start()
         }
     }
 }

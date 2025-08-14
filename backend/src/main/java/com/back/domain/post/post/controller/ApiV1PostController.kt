@@ -1,132 +1,115 @@
-package com.back.domain.post.post.controller;
+package com.back.domain.post.post.controller
 
-import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.service.MemberService;
-import com.back.domain.post.post.dto.PostDto;
-import com.back.domain.post.post.dto.PostWithContentDto;
-import com.back.domain.post.post.entity.Post;
-import com.back.domain.post.post.service.PostService;
-import com.back.global.rq.Rq;
-import com.back.global.rsData.RsData;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.RequiredArgsConstructor;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import com.back.domain.member.member.service.MemberService
+import com.back.domain.post.post.dto.PostDto
+import com.back.domain.post.post.dto.PostWithContentDto
+import com.back.domain.post.post.entity.Post
+import com.back.domain.post.post.service.PostService
+import com.back.global.rq.Rq
+import com.back.global.rsData.RsData
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
+import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
+import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/posts")
-@RequiredArgsConstructor
 @Tag(name = "ApiV1PostController", description = "API 글 컨트롤러")
 @SecurityRequirement(name = "bearerAuth")
-public class ApiV1PostController {
-    private final PostService postService;
-    private final MemberService memberService;
-    private final Rq rq;
+class ApiV1PostController(
+    private val postService: PostService,
+    private val memberService: MemberService,
+    private val rq: Rq
+) {
 
-    @GetMapping
-    @Transactional(readOnly = true)
     @Operation(summary = "다건 조회")
-    public List<PostDto> getItems() {
-        List<Post> items = postService.findAll();
+    @Transactional(readOnly = true)
+    @GetMapping
+    fun getItems(): List<PostDto> =
+        postService.findAll()
+            .map { post: Post -> PostDto(post) }  // PostDto로 변환
 
-        return items
-                .stream()
-                .map(PostDto::new) // PostDto로 변환
-                .toList();
-    }
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     @Operation(summary = "단건 조회")
-    public PostWithContentDto getItem(@PathVariable int id) {
-        Post post = postService.findById(id).get();
-
-        return new PostWithContentDto(post);
+    fun getItem(@PathVariable id: Int): PostWithContentDto {
+        val post = postService.findById(id).get()
+        return PostWithContentDto(post)
     }
 
     @DeleteMapping("/{id}")
     @Transactional
     @Operation(summary = "삭제")
-    public RsData<Void> delete(
-            @PathVariable int id
-    ) {
-        Member actor = rq.getActor();
+    fun delete(@PathVariable id: Int): RsData<Void> {
+        val post = postService.findById(id).get()
 
-        Post post = postService.findById(id).get();
+        post.checkActorCanDelete(rq.actor)
 
-        post.checkActorCanDelete(actor);
+        postService.delete(post)
 
-        postService.delete(post);
-
-        return new RsData<>(
-                "200-1",
-                "%d번 글이 삭제되었습니다.".formatted(id)
-        );
+        return RsData(
+            "200-1",
+            "${id}번 글이 삭제되었습니다."
+        )
     }
 
-
-    record PostWriteReqBody(
-            @NotBlank
-            @Size(min = 2, max = 100)
-            String title,
-            @NotBlank
-            @Size(min = 2, max = 5000)
-            String content
-    ) {
-    }
+    @JvmRecord
+    data class PostWriteReqBody(
+        @field:NotBlank @field:Size(min = 2, max = 100)
+        val title: String,
+        @field:NotBlank @field:Size(min = 2, max = 5000)
+        val content: String
+    )
 
     @PostMapping
     @Transactional
     @Operation(summary = "작성")
-    public RsData<PostDto> write(
-            @Valid @RequestBody PostWriteReqBody reqBody
-    ) {
-        Member actor = rq.getActor();
+    fun write(
+        @RequestBody @Valid reqBody: PostWriteReqBody
+    ): RsData<PostDto> {
+        val post = postService.write(
+            rq.actor,
+            reqBody.title,
+            reqBody.content
+        )
 
-        Post post = postService.write(actor, reqBody.title, reqBody.content);
-
-        return new RsData<>(
-                "201-1",
-                "%d번 글이 작성되었습니다.".formatted(post.getId()),
-                new PostDto(post)
-        );
+        return RsData(
+            "201-1",
+            "${post.id}번 글이 작성되었습니다.",
+            PostDto(post)
+        )
     }
 
-    record PostModifyReqBody(
-            @NotBlank
-            @Size(min = 2, max = 100)
-            String title,
-            @NotBlank
-            @Size(min = 2, max = 5000)
-            String content
-    ) {
-    }
+    @JvmRecord
+    data class PostModifyReqBody(
+        @field:NotBlank @field:Size(min = 2, max = 100)
+        val title: String,
+        @field:NotBlank
+        @field:Size(min = 2, max = 5000)
+        val content: String
+    )
 
     @PutMapping("/{id}")
     @Transactional
     @Operation(summary = "수정")
-    public RsData<Void> modify(
-            @PathVariable int id,
-            @Valid @RequestBody PostModifyReqBody reqBody
-    ) {
-        Member actor = rq.getActor();
+    fun modify(
+        @PathVariable id: Int,
+        @RequestBody reqBody: @Valid PostModifyReqBody
+    ): RsData<Void> {
+        val post = postService.findById(id).get()
 
-        Post post = postService.findById(id).get();
+        post.checkActorCanModify(rq.actor)
 
-        post.checkActorCanModify(actor);
+        postService.modify(post, reqBody.title, reqBody.content)
 
-        postService.modify(post, reqBody.title, reqBody.content);
-
-        return new RsData<>(
-                "200-1",
-                "%d번 글이 수정되었습니다.".formatted(post.getId())
-        );
+        return RsData(
+            "200-1",
+            "${post.id}번 글이 수정되었습니다."
+        )
     }
 }

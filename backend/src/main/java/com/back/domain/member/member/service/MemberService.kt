@@ -1,89 +1,83 @@
-package com.back.domain.member.member.service;
+package com.back.domain.member.member.service
 
-import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.repository.MemberRepository;
-import com.back.global.exception.ServiceException;
-import com.back.global.rsData.RsData;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import com.back.domain.member.member.entity.Member
+import com.back.domain.member.member.repository.MemberRepository
+import com.back.global.exception.ServiceException
+import com.back.global.rsData.RsData
+import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.stereotype.Service
+import java.util.*
+import java.util.function.Consumer
 
 @Service
-@RequiredArgsConstructor
-public class MemberService {
-    private final AuthTokenService authTokenService;
-    private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder;
-
-    public long count() {
-        return memberRepository.count();
+class MemberService(
+    private val authTokenService: AuthTokenService,
+    private val memberRepository: MemberRepository,
+    private val passwordEncoder: PasswordEncoder
+) {
+    fun count(): Long {
+        return memberRepository.count()
     }
 
-    public Member join(String username, String password, String nickname) {
-        return join(username, password, nickname, null);
-    }
-
-    public Member join(String username, String password, String nickname, String profileImgUrl) {
+    @JvmOverloads
+    fun join(username: String, password: String?, nickname: String, profileImgUrl: String? = null): Member {
+        var password = password
         memberRepository
-                .findByUsername(username)
-                .ifPresent(_member -> {
-                    throw new ServiceException("409-1", "이미 존재하는 아이디입니다.");
-                });
+            .findByUsername(username)
+            .ifPresent(Consumer { _member: Member ->
+                throw ServiceException("409-1", "이미 존재하는 아이디입니다.")
+            })
 
-        password = (password != null && !password.isBlank()) ? passwordEncoder.encode(password) : null;
+        password = if (password.isNullOrBlank()) null else passwordEncoder.encode(password)
 
-        Member member = new Member(username, password, nickname, profileImgUrl);
+        val member = Member(username, password, nickname, profileImgUrl)
 
-        return memberRepository.save(member);
+        return memberRepository.save(member)
     }
 
-    public Optional<Member> findByUsername(String username) {
-        return memberRepository.findByUsername(username);
+    fun findByUsername(username: String?): Optional<Member> {
+        return memberRepository.findByUsername(username)
     }
 
-    public Optional<Member> findByApiKey(String apiKey) {
-        return memberRepository.findByApiKey(apiKey);
+    fun findByApiKey(apiKey: String): Optional<Member> {
+        return memberRepository.findByApiKey(apiKey)
     }
 
-    public String genAccessToken(Member member) {
-        return authTokenService.genAccessToken(member);
+    fun genAccessToken(member: Member): String {
+        return authTokenService.genAccessToken(member)
     }
 
-    public Map<String, Object> payload(String accessToken) {
-        return authTokenService.payload(accessToken);
+    fun payload(accessToken: String): Map<String, Any>? {
+        return authTokenService.payload(accessToken)
     }
 
-    public Optional<Member> findById(int id) {
-        return memberRepository.findById(id);
+    fun findById(id: Int): Optional<Member> {
+        return memberRepository.findById(id)
     }
 
-    public List<Member> findAll() {
-        return memberRepository.findAll();
+    fun findAll(): MutableList<Member> {
+        return memberRepository.findAll()
     }
 
-    public void checkPassword(Member member, String password) {
-        if (!passwordEncoder.matches(password, member.getPassword()))
-            throw new ServiceException("401-1", "비밀번호가 일치하지 않습니다.");
+    fun checkPassword(member: Member, password: String) {
+        if (!passwordEncoder.matches(password, member.password))
+            throw ServiceException("401-1", "비밀번호가 일치하지 않습니다.")
     }
 
-    public RsData<Member> modifyOrJoin(String username, String password, String nickname, String profileImgUrl) {
-        Member member = findByUsername(username).orElse(null);
+    fun modifyOrJoin(username: String, password: String?, nickname: String, profileImgUrl: String?): RsData<Member> {
+        var member = findByUsername(username).orElse(null)
 
         if (member == null) {
-            member = join(username, password, nickname, profileImgUrl);
-            return new RsData<>("201-1", "회원가입이 완료되었습니다.", member);
+            member = join(username, password, nickname, profileImgUrl)
+            return RsData("201-1", "회원가입이 완료되었습니다.", member)
         }
 
-        modify(member, nickname, profileImgUrl);
+        modify(member, nickname, profileImgUrl)
 
-        return new RsData<>("200-1", "회원 정보가 수정되었습니다.", member);
+        return RsData("200-1", "회원 정보가 수정되었습니다.", member)
     }
 
-    private void modify(Member member, String nickname, String profileImgUrl) {
-        member.modify(nickname, profileImgUrl);
+    private fun modify(member: Member, nickname: String, profileImgUrl: String?) {
+        member.modify(nickname, profileImgUrl)
     }
 }

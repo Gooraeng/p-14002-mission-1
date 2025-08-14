@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor
 class PostComment(
     @field:ManyToOne val author: Member,
     @field:ManyToOne val post: Post,
-    @JvmField var content: String
+    var content: String
 ) : BaseEntity() {
     fun modify(content: String) {
         this.content = content

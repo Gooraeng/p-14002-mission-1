@@ -1,41 +1,46 @@
-package com.back.domain.member.member.service;
+package com.back.domain.member.member.service
 
-import com.back.domain.member.member.entity.Member;
-import com.back.standard.util.Ut;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
-import java.util.Map;
+import com.back.domain.member.member.entity.Member
+import com.back.standard.util.Ut
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Service
 
 @Service
-public class AuthTokenService {
-    @Value("${custom.jwt.secretKey}")
-    private String jwtSecretKey;
+class AuthTokenService(
+    @param:Value("\${custom.jwt.secretKey}")
+    private val jwtSecretKey: String,
 
-    @Value("${custom.accessToken.expirationSeconds}")
-    private int accessTokenExpirationSeconds;
+    @param:Value("\${custom.accessToken.expirationSeconds}")
+    private val accessTokenExpirationSeconds: Int
+){
 
-    String genAccessToken(Member member) {
-        long id = member.getId();
-        String username = member.getUsername();
-        String name = member.getName();
+    fun genAccessToken(member: Member): String {
+        val id = member.id.toLong()
+        val username = member.username
+        val name = member.name
 
         return Ut.jwt.toString(
-                jwtSecretKey,
-                accessTokenExpirationSeconds,
-                Map.of("id", id, "username", username, "name", name)
-        );
+            jwtSecretKey,
+            accessTokenExpirationSeconds,
+            mapOf(
+                "id" to id,
+                "username" to username,
+                "name" to name
+            )
+        )
     }
 
-    Map<String, Object> payload(String accessToken) {
-        Map<String, Object> parsedPayload = Ut.jwt.payload(jwtSecretKey, accessToken);
+    fun payload(accessToken: String): Map<String, Any>? {
+        val parsedPayload = Ut.jwt.payload(jwtSecretKey, accessToken) ?: return null
 
-        if (parsedPayload == null) return null;
+        val id = parsedPayload["id"] as Int
+        val username = parsedPayload["username"] as String
+        val name = parsedPayload["name"] as String
 
-        int id = (int) parsedPayload.get("id");
-        String username = (String) parsedPayload.get("username");
-        String name = (String) parsedPayload.get("name");
-
-        return Map.of("id", id, "username", username, "name", name);
+        return mapOf(
+            "id" to id,
+            "username" to username,
+            "name" to name
+        )
     }
 }

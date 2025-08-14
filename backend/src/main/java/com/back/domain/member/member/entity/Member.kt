@@ -1,102 +1,76 @@
-package com.back.domain.member.member.entity;
+package com.back.domain.member.member.entity
 
-import com.back.global.jpa.entity.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import lombok.NoArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
+import com.back.global.jpa.entity.BaseEntity
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import lombok.NoArgsConstructor
+import org.springframework.security.core.GrantedAuthority
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import java.util.*
 
 @Entity
 @NoArgsConstructor
-public class Member extends BaseEntity {
-    @Column(unique = true)
-    private String username;
-    private String password;
-    private String nickname;
-    @Column(unique = true)
-    private String apiKey;
-    private String profileImgUrl;
+class Member(
+    id: Int,
+    @field:Column(unique = true) val username: String,
+    var password: String? = null,
+    var nickname: String,
+    @field:Column(unique = true) var apiKey: String,
+    var profileImgUrl: String? = null,
+) : BaseEntity(id) {
 
-    public Member(int id, String username, String nickname) {
-        setId(id);
-        this.username = username;
-        this.nickname = nickname;
+    constructor(id: Int, username: String, nickname: String): this(
+        id,
+        username,
+        null,
+        nickname,
+        ""
+    )
+
+    constructor(username: String, password: String?, nickname: String, profileImgUrl: String?): this(
+        0,
+        username,
+        password,
+        nickname,
+        UUID.randomUUID().toString(),
+        profileImgUrl
+    )
+
+    val profileImgUrlOrDefault: String
+        get() = profileImgUrl ?: "https://placehold.co/600x600?text=U_U"
+
+    val name: String
+        get() = nickname
+
+    val isAdmin: Boolean
+        get() {
+            if ("system" == username) return true
+            if ("admin" == username) return true
+
+            return false
+        }
+
+    val authoritiesAsStringList: List<String>
+        get() {
+            val authorities: MutableList<String> = ArrayList()
+
+            if (isAdmin) authorities.add("ROLE_ADMIN")
+
+            return authorities
+        }
+
+    val authorities: Collection<GrantedAuthority>
+        get() = authoritiesAsStringList
+            .stream()
+            .map { SimpleGrantedAuthority(it) }
+            .toList()
+
+    fun modify(nickname: String, profileImgUrl: String?) {
+        this.nickname = nickname
+        this.profileImgUrl = profileImgUrl
     }
 
-    public Member(String username, String password, String nickname, String profileImgUrl) {
-        this.username = username;
-        this.password = password;
-        this.nickname = nickname;
-        this.profileImgUrl = profileImgUrl;
-        this.apiKey = UUID.randomUUID().toString();
-    }
-
-    public String getName() {
-        return nickname;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getNickname() {
-        return nickname;
-    }
-
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public String getProfileImgUrl() {
-        return profileImgUrl;
-    }
-
-    public void modifyApiKey(String apiKey) {
-        this.apiKey = apiKey;
-    }
-
-    public boolean isAdmin() {
-        if ("system".equals(username)) return true;
-        if ("admin".equals(username)) return true;
-
-        return false;
-    }
-
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return getAuthoritiesAsStringList()
-                .stream()
-                .map(SimpleGrantedAuthority::new)
-                .toList();
-    }
-
-    private List<String> getAuthoritiesAsStringList() {
-        List<String> authorities = new ArrayList<>();
-
-        if (isAdmin())
-            authorities.add("ROLE_ADMIN");
-
-        return authorities;
-    }
-
-    public void modify(String nickname, String profileImgUrl) {
-        this.nickname = nickname;
-        this.profileImgUrl = profileImgUrl;
-    }
-
-    public String getProfileImgUrlOrDefault() {
-        if (profileImgUrl == null)
-            return "https://placehold.co/600x600?text=U_U";
-
-        return profileImgUrl;
+    fun modifyApiKey(apiKey: String) {
+        this.apiKey = apiKey
     }
 }

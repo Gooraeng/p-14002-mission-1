@@ -1,56 +1,33 @@
-package com.back.global.jpa.entity;
+package com.back.global.jpa.entity
 
-import jakarta.persistence.EntityListeners;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.MappedSuperclass;
-import lombok.Setter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
-import java.time.LocalDateTime;
-import java.util.Objects;
-
-import static jakarta.persistence.GenerationType.IDENTITY;
-import static lombok.AccessLevel.PROTECTED;
+import jakarta.persistence.*
+import org.springframework.data.annotation.CreatedDate
+import org.springframework.data.annotation.LastModifiedDate
+import org.springframework.data.jpa.domain.support.AuditingEntityListener
+import java.time.LocalDateTime
+import java.util.*
 
 @MappedSuperclass // 엔티티의 부모 클래스에는 이걸 달아야 한다.
-@EntityListeners(AuditingEntityListener.class)
-public abstract class BaseEntity {
+@EntityListeners(AuditingEntityListener::class)
+abstract class BaseEntity(
     @Id
-    @GeneratedValue(strategy = IDENTITY)
-    @Setter(PROTECTED)
-    private int id;
-
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Int = 0
+) {
     @CreatedDate
-    private LocalDateTime createDate;
+    lateinit var createDate: LocalDateTime
 
     @LastModifiedDate
-    private LocalDateTime modifyDate;
+    lateinit var modifyDate: LocalDateTime
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == this) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        BaseEntity that = (BaseEntity) o;
-        return id == that.id;
+    override fun equals(other: Any?): Boolean {
+        if (other === this) return true
+        if (other == null || javaClass != other.javaClass) return false
+        val that = other as BaseEntity
+        return id == that.id
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public LocalDateTime getCreateDate() {
-        return createDate;
-    }
-
-    public LocalDateTime getModifyDate() {
-        return modifyDate;
+    override fun hashCode(): Int {
+        return Objects.hashCode(id)
     }
 }

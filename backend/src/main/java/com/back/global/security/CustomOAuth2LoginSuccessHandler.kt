@@ -1,51 +1,47 @@
-package com.back.global.security;
+package com.back.global.security
 
-import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.service.MemberService;
-import com.back.global.rq.Rq;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import com.back.domain.member.member.service.MemberService
+import com.back.global.rq.Rq
+import jakarta.servlet.ServletException
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import org.springframework.security.core.Authentication
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler
+import org.springframework.stereotype.Component
+import java.io.IOException
+import java.nio.charset.StandardCharsets
+import java.util.*
 
 @Component
-@RequiredArgsConstructor
-public class CustomOAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
-    private final MemberService memberService;
-    private final Rq rq;
+class CustomOAuth2LoginSuccessHandler(
+    private val memberService: MemberService,
+    private val rq: Rq
+): AuthenticationSuccessHandler {
 
-    @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-        // 일단은 현재 소셜 로그인 한 사람이 3번 회원이라고 가정
-        Member actor = rq.getActorFromDb();
+    @Throws(IOException::class, ServletException::class)
+    override fun onAuthenticationSuccess(
+        request: HttpServletRequest,
+        response: HttpServletResponse?,
+        authentication: Authentication?
+    ) {
+        val actor = rq.actorFromDb
 
-        String accessToken = memberService.genAccessToken(actor);
+        val accessToken = memberService.genAccessToken(actor)
 
-        rq.setCookie("apiKey", actor.getApiKey());
-        rq.setCookie("accessToken", accessToken);
+        rq.setCookie("apiKey", actor.apiKey)
+        rq.setCookie("accessToken", accessToken)
 
         // ✅ 기본 리다이렉트 URL
-        String redirectUrl = "/";
-
-        // ✅ state 파라미터 확인
-        String stateParam = request.getParameter("state");
-
-        if (stateParam != null) {
-            // 1️⃣ Base64 URL-safe 디코딩
-            String decodedStateParam = new String(Base64.getUrlDecoder().decode(stateParam), StandardCharsets.UTF_8);
-
-            // 2️⃣ '#' 앞은 redirectUrl, 뒤는 originState
-            redirectUrl = decodedStateParam.split("#", 2)[0];
+        val redirectUrl = request.getParameter("state")?.let {
+            String(
+                Base64.getUrlDecoder().decode(it),
+                StandardCharsets.UTF_8
+            )
         }
+            ?.substringBefore("#")
+            ?.takeIf { it.isNotBlank() }
+            ?: "/"
 
-        // ✅ 최종 리다이렉트
-        rq.sendRedirect(redirectUrl);
+        rq.sendRedirect(redirectUrl)
     }
 }

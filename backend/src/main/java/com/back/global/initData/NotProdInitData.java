@@ -53,8 +53,8 @@ public class NotProdInitData {
         memberUser3.modifyApiKey(memberUser3.getUsername());
 
         customConfigProperties.getNotProdMembers().forEach(notProdMember -> {
-            Member socailMember = memberService.join(notProdMember.username(), null, notProdMember.nickname(), notProdMember.profileImgUrl());
-            socailMember.modifyApiKey(notProdMember.apiKey());
+            Member socailMember = memberService.join(notProdMember.username, null, notProdMember.nickname, notProdMember.profileImgUrl);
+            socailMember.modifyApiKey(notProdMember.apiKey);
         });
     }
 

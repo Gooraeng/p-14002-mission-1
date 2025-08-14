@@ -1,73 +1,88 @@
-package com.back.global.security;
+package com.back.global.security
 
-import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.service.MemberService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
-import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
-import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Map;
+import com.back.domain.member.member.service.MemberService
+import org.slf4j.LoggerFactory
+import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException
+import org.springframework.security.oauth2.core.user.OAuth2User
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
-public class CustomOAuth2UserService extends DefaultOAuth2UserService {
-    private final MemberService memberService;
+class CustomOAuth2UserService (
+    private val memberService: MemberService
+) : DefaultOAuth2UserService() {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
+
+    private enum class OAuth2ProviderType {
+        GOOGLE,
+        KAKAO,
+        NAVER;
+
+        companion object {
+            fun from(registrationId: String): OAuth2ProviderType {
+                return entries.firstOrNull {
+                    it.name.equals(registrationId, ignoreCase = true)
+                } ?: error("Invalid registration ID : $registrationId")
+            }
+        }
+    }
 
     // 카카오톡 로그인이 성공할 때 마다 이 함수가 실행된다.
-    @Override
     @Transactional
-    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+    @Throws(OAuth2AuthenticationException::class)
+    override fun loadUser(userRequest: OAuth2UserRequest): OAuth2User {
+        val oAuth2User = super.loadUser(userRequest)
 
-        OAuth2User oAuth2User = super.loadUser(userRequest);
+        val provider = OAuth2ProviderType.from(userRequest.clientRegistration.registrationId)
 
-        String oauthUserId = "";
-        String providerTypeCode = userRequest.getClientRegistration().getRegistrationId().toUpperCase();
+        val (oAuthUserId, nickname, profileImgUrl) = when (provider) {
+            OAuth2ProviderType.GOOGLE -> {
+                val properties = oAuth2User.attributes.getValue("properties") as Map<String, Any>
 
-        String nickname = "";
-        String profileImgUrl = "";
-        String username = "";
-
-        switch (providerTypeCode) {
-            case "KAKAO" -> {
-                Map<String, Object> attributes = oAuth2User.getAttributes();
-                Map<String, Object> attributesProperties = (Map<String, Object>) attributes.get("properties");
-
-                oauthUserId = oAuth2User.getName();
-                nickname = (String) attributesProperties.get("nickname");
-                profileImgUrl = (String) attributesProperties.get("profile_image");
+                Triple(
+                    oAuth2User.name,
+                    properties.getValue("nickname") as String,
+                    properties.getValue("profile_image") as String
+                )
             }
-            case "GOOGLE" -> {
-                oauthUserId = oAuth2User.getName();
-                nickname = (String) oAuth2User.getAttributes().get("name");
-                profileImgUrl = (String) oAuth2User.getAttributes().get("picture");
-            }
-            case "NAVER" -> {
-                Map<String, Object> attributes = oAuth2User.getAttributes();
-                Map<String, Object> attributesProperties = (Map<String, Object>) attributes.get("response");
 
-                oauthUserId = (String) attributesProperties.get("id");
-                nickname = (String) attributesProperties.get("nickname");
-                profileImgUrl = (String) attributesProperties.get("profile_image");
+            OAuth2ProviderType.KAKAO -> {
+                val attributes = oAuth2User.attributes
+
+                Triple(
+                    oAuth2User.name,
+                    attributes.getValue("name") as String,
+                    attributes.getValue("picture") as String
+                )
+            }
+
+            OAuth2ProviderType.NAVER -> {
+                val response = oAuth2User.attributes.getValue("response") as Map<String, Any>
+
+                Triple(
+                    response.getValue("id") as String,
+                    response.getValue("nickname") as String,
+                    response.getValue("profile_image") as String
+                )
             }
         }
 
-        username = providerTypeCode + "__%s".formatted(oauthUserId);
-        String password = "";
+        val username = "${provider.name}__$oAuthUserId"
+        val password = ""
 
-        Member member = memberService.modifyOrJoin(username, password, nickname, profileImgUrl).data();
+        logger.debug("[OAuth2 Login Succeed] provider={}, oauthUserId={}, username={}", provider.name, oAuthUserId, username)
 
-        return new SecurityUser(
-                member.getId(),
-                member.getUsername(),
-                member.getPassword(),
-                member.getName(),
-                member.getAuthorities()
-        );
+        val member = memberService.modifyOrJoin(username, password, nickname, profileImgUrl).data
+
+        return SecurityUser(
+            member.id,
+            member.username,
+            member.password ?: "",
+            member.name,
+            member.authorities
+        )
     }
 }

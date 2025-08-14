@@ -1,24 +1,18 @@
-package com.back.global.app;
+package com.back.global.app
 
-import lombok.Getter;
-import lombok.Setter;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.stereotype.Component
 
 @Component
 @ConfigurationProperties(prefix = "custom")
-@Getter
-@Setter
-public class CustomConfigProperties {
-    private List<NotProdMember> notProdMembers;
+class CustomConfigProperties {
+    lateinit var notProdMembers: MutableList<NotProdMember>
 
-    public record NotProdMember(
-            String username,
-            String apiKey,
-            String nickname,
-            String profileImgUrl
-    ) {
-    }
+    @JvmRecord
+    data class NotProdMember(
+        @JvmField val username: String,
+        @JvmField val apiKey: String,
+        @JvmField val nickname: String,
+        @JvmField val profileImgUrl: String
+    )
 }

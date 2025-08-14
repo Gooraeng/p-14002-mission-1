@@ -1,122 +1,82 @@
-package com.back.global.globalExceptionHandler;
+package com.back.global.globalExceptionHandler
 
-import com.back.global.exception.ServiceException;
-import com.back.global.rsData.RsData;
-import jakarta.validation.ConstraintViolationException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingRequestHeaderException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.Comparator;
-import java.util.NoSuchElementException;
-import java.util.stream.Collectors;
-
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
+import com.back.global.exception.ServiceException
+import com.back.global.rsData.RsData
+import jakarta.validation.ConstraintViolationException
+import lombok.RequiredArgsConstructor
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.validation.FieldError
+import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingRequestHeaderException
+import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.ResponseStatus
+import org.springframework.web.bind.annotation.RestControllerAdvice
 
 @RestControllerAdvice
 @RequiredArgsConstructor
-public class GlobalExceptionHandler {
-    @ExceptionHandler(NoSuchElementException.class)
-    public ResponseEntity<RsData<Void>> handle(NoSuchElementException ex) {
-        return new ResponseEntity<>(
-                new RsData<>(
-                        "404-1",
-                        "해당 데이터가 존재하지 않습니다."
-                ),
-                NOT_FOUND
-        );
+class GlobalExceptionHandler {
+
+    @ExceptionHandler(NoSuchElementException::class)
+    fun handle(ex: NoSuchElementException?): ResponseEntity<RsData<Void>> =
+        ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(RsData("404-1", "해당 데이터가 존재하지 않습니다."))
+
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handle(ex: ConstraintViolationException): ResponseEntity<RsData<Void>> {
+        val message = ex.constraintViolations
+            .asSequence()
+            .map { violation ->
+                val path = violation.propertyPath.toString()
+                val field: String = path.split(".", limit = 2).getOrElse(1) { path }
+
+                val bits = violation.messageTemplate.split(".")
+                val code = bits.getOrNull(bits.size - 2) ?: "Unknown"
+
+                "$field-$code-${violation.message}"
+            }
+            .sorted()
+            .joinToString("\n")
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(RsData("400-1", message))
     }
 
+    @ExceptionHandler(MethodArgumentNotValidException::class)
+    fun handle(ex: MethodArgumentNotValidException): ResponseEntity<RsData<Void?>?> {
+        val message = ex.bindingResult.allErrors.asSequence()
+            .filterIsInstance<FieldError>()
+            .map { err -> "${err.field}-${err.code}-${err.defaultMessage}" }
+            .sorted()
+            .joinToString("\n")
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<RsData<Void>> handle(ConstraintViolationException ex) {
-        String message = ex.getConstraintViolations()
-                .stream()
-                .map(violation -> {
-                    String field = violation.getPropertyPath().toString().split("\\.", 2)[1];
-                    String[] messageTemplateBits = violation.getMessageTemplate()
-                            .split("\\.");
-                    String code = messageTemplateBits[messageTemplateBits.length - 2];
-                    String _message = violation.getMessage();
-
-                    return "%s-%s-%s".formatted(field, code, _message);
-                })
-                .sorted(Comparator.comparing(String::toString))
-                .collect(Collectors.joining("\n"));
-
-        return new ResponseEntity<>(
-                new RsData<>(
-                        "400-1",
-                        message
-                ),
-                BAD_REQUEST
-        );
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(RsData("400-1", message))
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<RsData<Void>> handle(MethodArgumentNotValidException ex) {
-        String message = ex.getBindingResult()
-                .getAllErrors()
-                .stream()
-                .filter(error -> error instanceof FieldError)
-                .map(error -> (FieldError) error)
-                .map(error -> error.getField() + "-" + error.getCode() + "-" + error.getDefaultMessage())
-                .sorted(Comparator.comparing(String::toString))
-                .collect(Collectors.joining("\n"));
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handle(ex: HttpMessageNotReadableException): ResponseEntity<RsData<Void>> =
+        ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(RsData("400-1", "요청 본문이 올바르지 않습니다."))
 
-        return new ResponseEntity<>(
-                new RsData<>(
-                        "400-1",
-                        message
-                ),
-                BAD_REQUEST
-        );
-    }
+    @ExceptionHandler(MissingRequestHeaderException::class)
+    fun handle(ex: MissingRequestHeaderException): ResponseEntity<RsData<Void>> =
+        ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(RsData("400-1", "${ex.headerName}-NotBlank-${ex.localizedMessage}"))
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<RsData<Void>> handle(HttpMessageNotReadableException ex) {
-        return new ResponseEntity<>(
-                new RsData<>(
-                        "400-1",
-                        "요청 본문이 올바르지 않습니다."
-                ),
-                BAD_REQUEST
-        );
-    }
+    @ExceptionHandler(ServiceException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    fun handle(ex: ServiceException): ResponseEntity<RsData<Void>> {
+        val rsData = ex.rsData
 
-    @ExceptionHandler(MissingRequestHeaderException.class)
-    public ResponseEntity<RsData<Void>> handle(MissingRequestHeaderException ex) {
-        return new ResponseEntity<>(
-                new RsData<>(
-                        "400-1",
-                        "%s-%s-%s".formatted(
-                                ex.getHeaderName(),
-                                "NotBlank",
-                                ex.getLocalizedMessage()
-                        )
-                ),
-                BAD_REQUEST
-        );
-    }
-
-    @ExceptionHandler(ServiceException.class)
-    @ResponseStatus(BAD_REQUEST)
-    public ResponseEntity<RsData<Void>> handle(ServiceException ex) {
-        RsData<Void> rsData = ex.getRsData();
-
-        return new ResponseEntity<>(
-                rsData,
-                ResponseEntity
-                        .status(rsData.statusCode())
-                        .build()
-                        .getStatusCode()
-        );
+        return ResponseEntity
+            .status(rsData.statusCode)
+            .body(rsData)
     }
 }

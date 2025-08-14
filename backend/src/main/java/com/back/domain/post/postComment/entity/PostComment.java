@@ -6,11 +6,9 @@ import com.back.global.exception.ServiceException;
 import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Getter
 @NoArgsConstructor
 public class PostComment extends BaseEntity {
     @ManyToOne
@@ -37,5 +35,17 @@ public class PostComment extends BaseEntity {
     public void checkActorCanDelete(Member actor) {
         if (!author.equals(actor))
             throw new ServiceException("403-2", "%d번 댓글 삭제권한이 없습니다.".formatted(getId()));
+    }
+
+    public Member getAuthor() {
+        return author;
+    }
+
+    public Post getPost() {
+        return post;
+    }
+
+    public String getContent() {
+        return content;
     }
 }

@@ -35,7 +35,7 @@ class MemberService(
         return memberRepository.save(member)
     }
 
-    fun findByUsername(username: String?): Optional<Member> {
+    fun findByUsername(username: String): Optional<Member> {
         return memberRepository.findByUsername(username)
     }
 
@@ -55,7 +55,7 @@ class MemberService(
         return memberRepository.findById(id)
     }
 
-    fun findAll(): MutableList<Member> {
+    fun findAll(): List<Member> {
         return memberRepository.findAll()
     }
 

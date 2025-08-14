@@ -23,11 +23,11 @@ class PostService(
         return postRepository.save<Post>(post)
     }
 
-    fun findById(id: Int): Optional<Post?> {
+    fun findById(id: Int): Optional<Post> {
         return postRepository.findById(id)
     }
 
-    fun findAll(): MutableList<Post?> {
+    fun findAll(): List<Post> {
         return postRepository.findAll()
     }
 
@@ -51,7 +51,7 @@ class PostService(
         postRepository.delete(post)
     }
 
-    fun findLatest(): Optional<Post?>? {
+    fun findLatest(): Optional<Post> {
         return postRepository.findFirstByOrderByIdDesc()
     }
 

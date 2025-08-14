@@ -1,54 +1,45 @@
-package com.back.global.app;
+package com.back.global.app
 
-import com.back.standard.util.Ut;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import com.back.standard.util.Ut
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.core.env.Environment
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 
 @Configuration
-public class AppConfig {
-    private static Environment environment;
-
-    @Autowired
-    public void setEnvironment(Environment environment) {
-        AppConfig.environment = environment;
-    }
-
-    public static boolean isDev() {
-        return environment.matchesProfiles("dev");
-    }
-
-    public static boolean isTest() {
-        return !environment.matchesProfiles("test");
-    }
-
-    public static boolean isProd() {
-        return environment.matchesProfiles("prod");
-    }
-
-    public static boolean isNotProd() {
-        return !isProd();
+class AppConfig (
+    environment: Environment,
+    objectMapper: ObjectMapper
+){
+    init {
+        Companion.environment = environment
+        Ut.json.objectMapper = objectMapper
     }
 
     @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    fun passwordEncoder(): PasswordEncoder {
+        return BCryptPasswordEncoder()
     }
 
-    private static ObjectMapper objectMapper;
+    companion object {
+        private lateinit var environment: Environment
 
-    @Autowired
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        AppConfig.objectMapper = objectMapper;
-    }
+        @JvmStatic
+        val isDev: Boolean
+            get() = environment.matchesProfiles("dev")
 
-    @PostConstruct
-    public void postConstruct() {
-        Ut.json.objectMapper = objectMapper;
+        @JvmStatic
+        val isTest: Boolean
+            get() = !environment.matchesProfiles("test")
+
+        @JvmStatic
+        val isProd: Boolean
+            get() = environment.matchesProfiles("prod")
+
+        @JvmStatic
+        val isNotProd: Boolean
+            get() = !isProd
     }
 }

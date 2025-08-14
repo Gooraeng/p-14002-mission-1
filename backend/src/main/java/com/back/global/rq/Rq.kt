@@ -1,103 +1,70 @@
-package com.back.global.rq;
+package com.back.global.rq
 
-import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.service.MemberService;
-import com.back.global.security.SecurityUser;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
-import java.util.Optional;
+import com.back.domain.member.member.entity.Member
+import com.back.domain.member.member.service.MemberService
+import com.back.global.security.SecurityUser
+import jakarta.servlet.http.Cookie
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.stereotype.Component
 
 @Component
-@RequiredArgsConstructor
-public class Rq {
-    private final HttpServletRequest req;
-    private final HttpServletResponse resp;
-    private final MemberService memberService;
+class Rq(
+    private val req: HttpServletRequest,
+    private val resp: HttpServletResponse,
+    private val memberService: MemberService,
+) {
+    val actor: Member
+        get() = SecurityContextHolder
+            .getContext()
+            ?.authentication
+            ?.principal
+            ?.let {
+                if (it is SecurityUser) {
+                    Member(it.id, it.username, it.nickname)
+                } else {
+                    null
+                }
+            } ?: throw IllegalStateException("인증된 사용자가 없습니다.")
 
-    public Member getActor() {
-        return Optional.ofNullable(
-                        SecurityContextHolder
-                                .getContext()
-                                .getAuthentication()
-                )
-                .map(Authentication::getPrincipal)
-                .filter(principal -> principal instanceof SecurityUser)
-                .map(principal -> (SecurityUser) principal)
-                .map(securityUser -> new Member(securityUser.getId(), securityUser.getUsername(), securityUser.getNickname()))
-                .orElse(null);
+    val actorFromDb: Member
+        get() = memberService.findById(actor.id).get()
+
+    fun getHeader(name: String, defaultValue: String): String {
+        return req.getHeader(name) ?: defaultValue
     }
 
-    public Member getActorFromDb() {
-        Member actor = getActor();
+    fun setHeader(name: String, value: String) {
+        resp.setHeader(name, value)
+    }
 
-        if (actor == null) {
-            return null;
+    fun getCookieValue(name: String, defaultValue: String): String =
+        req.cookies
+            ?.firstOrNull { it.name == name }
+            ?.value
+            ?.takeIf { it.isNotBlank() }
+            ?: defaultValue
+
+    fun setCookie(name: String, value: String?) {
+        // NPE 방지 목적으로 기본값은 빈 문자열이 되도록
+        val cookie = Cookie(name, value ?: "").apply {
+            path = "/"
+            isHttpOnly = true
+            domain = "localhost"
+            secure = true
+            setAttribute("SameSite", "Strict")
+            maxAge = if (value.isNullOrBlank()) 0 else 60 * 60 * 24 * 365
         }
 
-        return memberService.findById(actor.getId()).get();
+        resp.addCookie(cookie)
     }
 
-    public String getHeader(String name, String defaultValue) {
-        return Optional
-                .ofNullable(req.getHeader(name))
-                .filter(headerValue -> !headerValue.isBlank())
-                .orElse(defaultValue);
+    fun deleteCookie(name: String) {
+        setCookie(name, null)
     }
 
-    public void setHeader(String name, String value) {
-        if (value == null) value = "";
-
-        if (value.isBlank()) {
-            req.removeAttribute(name);
-        } else {
-            resp.setHeader(name, value);
-        }
-    }
-
-    public String getCookieValue(String name, String defaultValue) {
-        return Optional
-                .ofNullable(req.getCookies())
-                .flatMap(
-                        cookies ->
-                                Arrays.stream(cookies)
-                                        .filter(cookie -> cookie.getName().equals(name))
-                                        .map(Cookie::getValue)
-                                        .filter(value -> !value.isBlank())
-                                        .findFirst()
-                )
-                .orElse(defaultValue);
-    }
-
-    public void setCookie(String name, String value) {
-        if (value == null) value = "";
-
-        Cookie cookie = new Cookie(name, value);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setDomain("localhost");
-        cookie.setSecure(true);
-        cookie.setAttribute("SameSite", "Strict");
-
-        if (value.isBlank()) cookie.setMaxAge(0);
-        else cookie.setMaxAge(60 * 60 * 24 * 365);
-
-        resp.addCookie(cookie);
-    }
-
-    public void deleteCookie(String name) {
-        setCookie(name, null);
-    }
-
-    @SneakyThrows
-    public void sendRedirect(String url) {
-        resp.sendRedirect(url);
+    fun sendRedirect(url: String) {
+        resp.sendRedirect(url)
     }
 }

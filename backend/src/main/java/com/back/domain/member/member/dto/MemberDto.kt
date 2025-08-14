@@ -1,27 +1,22 @@
-package com.back.domain.member.member.dto;
+package com.back.domain.member.member.dto
 
-import com.back.domain.member.member.entity.Member;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
+import com.back.domain.member.member.entity.Member
+import java.time.LocalDateTime
 
-import java.time.LocalDateTime;
-
-@Getter
-public class MemberDto {
-    private final int id;
-    private final LocalDateTime createDate;
-    private final LocalDateTime modifyDate;
-    private final String name;
-    @JsonProperty("isAdmin")
-    private final boolean admin;
-    private final String profileImageUrl;
-
-    public MemberDto(Member member) {
-        id = member.getId();
-        createDate = member.getCreateDate();
-        modifyDate = member.getModifyDate();
-        name = member.getName();
-        admin = member.isAdmin();
-        profileImageUrl = member.getProfileImgUrlOrDefault();
-    }
+data class MemberDto(
+    val id: Int,
+    val createDate: LocalDateTime,
+    val modifyDate: LocalDateTime,
+    val name: String,
+    val isAdmin: Boolean,
+    val profileImageUrl: String
+) {
+    constructor(member: Member): this(
+        id = member.id,
+        createDate = member.createDate,
+        modifyDate = member.modifyDate,
+        name = member.name,
+        isAdmin = member.isAdmin,
+        profileImageUrl = member.profileImgUrlOrDefault
+    )
 }
